@@ -2,8 +2,10 @@
 use strict;
 use warnings FATAL => 'all';
 use Carp;
+use JSON;
 
 use Data::Dumper;
+use DateTime;
 
 use LWP::UserAgent qw();
 use URI::Encode qw(uri_encode);
@@ -31,16 +33,25 @@ for my $c ($login_resp->header('Set-Cookie')) {
 die "No cookie set after authentication. Wrong username/password?"
     if !$authCookie;
 
-print $login_resp->content;
+my $login = decode_json($login_resp->content);
 
-# TODO fetch parkid from login response. It's in JSON.
 # eg. {"parks":[{"id":123,"name":"xxxxx"}],"userId":456}
-my $parkid = "";
+my $parkid;
+if (@{$login->{parks}}) {
+    $parkid = $login->{parks}[0]{id};
+    carp "Park ID : $parkid";
+} else {
+    die "No default ParkID determinable from login response: ".$login_resp->content;
+}
 
 my $baseurl = "https://reservation.campspot.com/api/v2/parks/$parkid/reports";
 my $start_date = "2020-08-01T07:00:00.000Z";
-my $end_date = "2020-10-01T07:00:00.000Z";
-my $report_resp = $ua->get($baseurl."/accountingReport?format=csv&startDate=$start_date&endDate=$end_date",
-    Cookie=>$authCookie);
+my $end_date = DateTime->today(time_zone=>'America/Los_Angeles')->set_time_zone("UTC")->strftime("%FT%TZ");
 
-#print Dumper($report_resp);
+print "$start_date -> $end_date\n";
+
+
+my $report_resp = $ua->get($baseurl."/accountingReport?format=csv&startDate=$start_date&endDate=$end_date",
+     Cookie=>$authCookie);
+
+print Dumper($report_resp);
