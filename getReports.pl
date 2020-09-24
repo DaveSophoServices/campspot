@@ -14,10 +14,21 @@ my $ua = LWP::UserAgent->new();
 
 # Read login information
 my $config_file = 'config';
-open (my $CONFIG, "<", $config_file) or die "Cannot open config file. Will contain two lines. Line 1 is your username, Line 2 your password";
-chomp(my $username = <$CONFIG>);
-chomp(my $password = <$CONFIG>);
+open (my $CONFIG, "<", $config_file) or die q/Cannot open config file. Will contain JSON: { "user":"username","pass":"password","domotarget":"user@instance"}/;
+
+my $config_json;
+do { local $/; $config_json = <$CONFIG>; };
 close $CONFIG;
+my $config = decode_json($config_json);
+
+if (!$config->{user}) {
+    warn q/config file must include username for campspot: { "user":"username" }/;
+}
+if (!$config->{pass}) {
+    warn q/config file must include password for campspot user {"user":"username", "pass":"mypassword"}/;
+}
+die if !($config->{user} && $config->{pass});
+
 
 #Read report information
 my $report_file = 'reports';
@@ -30,7 +41,7 @@ my $reports = decode_json($report_json);
 
 # Attempt Login
 my $login_resp = $ua->post("https://reservation.campspot.com/api/v2/authentication/login",
-			   Content => qq/{"username":"$username","password":"$password"}/,
+			   Content => q/{"username":"/.$config->{user}.q/","password":"/.$config->{pass}.q/"}/,
 			   Content_Type => 'application/json;charset=utf-8'
     );
 
@@ -62,6 +73,7 @@ my $end_date = DateTime->today(time_zone=>'America/Los_Angeles')->set_time_zone(
 
 print "$start_date -> $end_date\n";
 
+my $domo_instance = $config->{domotarget}.".import.domo.com";
 for my $rep (@$reports) {
     print "Report: ".$rep->{name}."\n";
     my @params;
@@ -80,14 +92,14 @@ for my $rep (@$reports) {
     my $url = sprintf("%s/%s?%s", $baseurl, $rep->{name}, join("&", @params));
     my $fname = sprintf("data/%s.csv", $rep->{name});
     my $report_resp = $ua->get($url,
-			       ':content-file' => $fname,
+			       ':content_file' => $fname,
     			       Cookie=>$authCookie);
 
     if ($report_resp->code() == 200) {
 	if (my $target =$rep->{domo}) {
 	    # upload it to domo
-	    my $output = `scp $fname $targetorg.import.domo.com:$target`;
-	    carp "Upload failed to $targetorg.import.domo.com:$target\n$a" if $?;
+	    my $output = `scp $fname $domo_instance:$target`;
+	    carp "Upload failed to $domo_instance:$target\n$output" if $?;
 	}
     }
 }
