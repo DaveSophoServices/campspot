@@ -78,7 +78,11 @@ if (@{$login->{parks}}) {
 
 my $baseurl = "https://reservation.campspot.com/api/v2/parks/$parkid/reports";
 my $start_date = "2020-08-01T07:00:00.000Z";
-my $end_date = DateTime->today(time_zone=>'America/Los_Angeles')->set_time_zone("UTC")->strftime("%FT%TZ");
+my $end_date = DateTime
+    ->today(time_zone=>'America/Los_Angeles')
+    ->add(days=>180)
+    ->set_time_zone("UTC")
+    ->strftime("%FT%TZ");
 
 print "$start_date -> $end_date\n";
 
