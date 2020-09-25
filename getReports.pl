@@ -12,6 +12,8 @@ use URI::Encode qw(uri_encode);
 
 my $ua = LWP::UserAgent->new();
 
+my $report_to_run = $ARGV[0];
+
 # Read login information
 my $config_file = 'config';
 open (my $CONFIG, "<", $config_file) or die q/Cannot open config file. Will contain JSON: { "user":"username","pass":"password","domotarget":"user@instance"}/;
@@ -38,6 +40,13 @@ my $report_json;
 do { local $/; $report_json = <$REPORTS>; };
 close $REPORTS;
 my $reports = decode_json($report_json);
+
+# check we have a report by this name
+if ($report_to_run) {
+    my $matchCount = 0;
+    for (@$reports) { if ($_->{name} eq $report_to_run) { $matchCount++; } }
+    die "Cannot find report named '$report_to_run' in reports file" if !$matchCount;
+}
 
 # Attempt Login
 my $login_resp = $ua->post("https://reservation.campspot.com/api/v2/authentication/login",
@@ -75,6 +84,8 @@ print "$start_date -> $end_date\n";
 
 my $domo_instance = $config->{domotarget}.".import.domo.com";
 for my $rep (@$reports) {
+    next if ($report_to_run && $rep->{name} ne $report_to_run);
+    
     print "Report: ".$rep->{name}."\n";
     my @params;
     for my $param (@{$rep->{params}}) {
