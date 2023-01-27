@@ -71,7 +71,7 @@ my $login = decode_json($login_resp->content);
 my $parkid;
 if (@{$login->{parks}}) {
     $parkid = $login->{parks}[0]{id};
-    carp "Park ID : $parkid";
+    #carp "Park ID : $parkid";
 } else {
     die "No default ParkID determinable from login response: ".$login_resp->content;
 }
